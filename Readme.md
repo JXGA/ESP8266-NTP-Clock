@@ -1,7 +1,9 @@
 # ESP-NTP-MAX7219-MQTT
 
 This project uses an ESP8266 to connect to our local NTP server to display the time on a MAX7219 8x8x4 LED Matrix. 
+
 In addition, the ESP8266 subscribes to an MQTT topic and scrolls messages. I schedule messages from Home Assistant - they run on pre-defined times and give info like weather & 3D printer status. Demo gif is below. 
+
 You will need to insert an NTP server, SSID/Password, MQTT Server, User & Password, plus check the number of MAX7219 displays is correct. 
 
 ## Notes:
