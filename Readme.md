@@ -8,7 +8,7 @@ You will need to insert an NTP server, SSID/Password, MQTT Server, User & Passwo
 
 ## Display rotation: 
 
-If your displays are upside down, see issue #1. 
+If your displays are upside down, see issue [#1]. 
 
 This code may help you: 
 
