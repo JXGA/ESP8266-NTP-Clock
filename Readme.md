@@ -6,6 +6,29 @@ In addition, the ESP8266 subscribes to an MQTT topic and scrolls messages. I sch
 
 You will need to insert an NTP server, SSID/Password, MQTT Server, User & Password, plus check the number of MAX7219 displays is correct. 
 
+## Display rotation: 
+
+If your displays are upside down, see issue #1. 
+
+This code may help you: 
+
+```
+matrix.setPosition(0, 3, 0); // (Display-Nr ab Einspeisung, X, Y)
+matrix.setPosition(1, 2, 0);
+matrix.setPosition(2, 1, 0);
+matrix.setPosition(3, 0, 0);
+
+matrix.fillScreen(0);
+
+matrix.setIntensity(0); // Use a value between 0 and 15 for brightness
+matrix.setRotation(0, 3); // The first display is position upside down
+matrix.setRotation(1, 3); // The first display is position upside down
+matrix.setRotation(2, 3); // The first display is position upside down
+matrix.setRotation(3, 3); // The first display is position upside down
+display_message("Ready");
+```
+
+
 ## Notes:
 1. This device does not have a real time clock (RTC), thus polls the NTP server a lot. If you wish to build this device, I recommend you build a small NTP server for your network to lower the load on other pools. This can be 
 achieved with things like Chrony, which run in docker containers.
