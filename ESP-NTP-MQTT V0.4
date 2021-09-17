@@ -44,6 +44,9 @@ int width  = 5 + spacer;                    // The font width is 5 pixels
 
 ////////////////////////////////////////////////////////
 
+// for testing purpose:
+extern "C" int clock_gettime(clockid_t unused, struct timespec *tp);
+
 char time_value[20];      // This var will contain the digits for the time
 Max72xxPanel matrix = Max72xxPanel(pinCS, numberOfHorizontalDisplays, numberOfVerticalDisplays);
 static time_t now;  // An object which can store a time
@@ -58,6 +61,19 @@ int wifiAttempt = 0;
 
 ////////////////////////////////////////////////////////
 
+// This is a shortcut to print a bunch of stuff to the serial port.  It's very confusing, but shows what values are available
+#define PTM(w) \
+  Serial.print(" " #w "="); \
+  Serial.print(tm->tm_##w);
+
+void printTm(const char* what, const tm* tm) {
+  Serial.print(what);
+  PTM(isdst); PTM(yday); PTM(wday);
+  PTM(year);  PTM(mon);  PTM(mday);
+  PTM(hour);  PTM(min);  PTM(sec);
+}
+//
+
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
@@ -69,7 +85,7 @@ void reconnect() {
     if (client.connect(clientId.c_str(), mqttUser, mqttPassword)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("nodeNTP_1/outmsg", "online");    // Publish mqtt messages to this topic (eg nodeNTP_1/outmsg) Update number if you want more that 1 node...
+      client.publish("nodeNTP_1/outmsg", "online");    // Publish mqtt messages to this topic (eg nodeNTP_1/outmsg)
       client.subscribe("nodeNTP_1/inmsg");             // Subscribe to mqtt messages to this topic (eg nodeNTP_1/inmsg - will display text message)
       client.subscribe("nodeNTP_1/bright");            // Subscribe to messages to this topic (eg nodeNTP_1/bright - sets the display brightness 1-15)
     } else {
@@ -139,6 +155,8 @@ void showTime() {           // This function gets the current time
   byte actualMinute = localtime(&now)->tm_min;
   actualSecond = localtime(&now)->tm_sec;
 
+  myTime = "";
+  
       if (actualHour < 10) {
         myTime = myTime + "0" + String(actualHour);
       }
@@ -235,6 +253,7 @@ void loop() {
 if (showTimeNow) {
     showTime();
 
+      Serial.println("myTime var is: " + myTime);
       myTime.toCharArray(time_value, 10);
       matrix.drawChar(1, 0, time_value[0], HIGH, LOW, 1); // H
       matrix.drawChar(9, 0, time_value[1], HIGH, LOW, 1); // HH
@@ -247,6 +266,12 @@ if (showTimeNow) {
       matrix.drawChar(19, 0, time_value[3], HIGH, LOW, 1); // HH:M
       matrix.drawChar(26, 0, time_value[4], HIGH, LOW, 1); // HH:MM
       matrix.write(); // Send bitmap to display
+     
+     Serial.println();
+        // human readable
+        Serial.print("ctime:     ");
+        Serial.print(ctime(&now));
      }
     delay(50);
+      
 }
