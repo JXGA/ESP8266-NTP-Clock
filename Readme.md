@@ -30,12 +30,12 @@ display_message("Ready");
 
 
 ## Notes:
-1. This device does not have a real time clock (RTC), thus polls the NTP server a lot. If you wish to build this device, I recommend you build a small NTP server for your network to lower the load on other pools. This can be 
+1. This may be rectified, but worth doing anyway....... This device does not have a real time clock (RTC), thus polls the NTP server a lot. If you wish to build this device, I recommend you build a small NTP server for your network to lower the load on other pools. This can be 
 achieved with things like Chrony, which run in docker containers.
 2. A number of other libraries are required. These are below!
 
 ## Libraries:
-1. NTPtimeESP: https://github.com/SensorsIot/NTPtimeESP
+1. ESP8266 libs: https://github.com/esp8266/Arduino
 2. PubSubClient: https://github.com/knolleary/pubsubclient
 3. Adafruit-GFX: https://github.com/adafruit/Adafruit-GFX-Library
 4. Max72xxPanel: https://github.com/markruys/arduino-Max72xxPanel
