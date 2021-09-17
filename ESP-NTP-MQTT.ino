@@ -232,7 +232,7 @@ void setup() {
     }
     Serial.print(".");
   }
-|| (payloadData == String("True"))
+
   String ip = WiFi.localIP().toString().c_str();
   Serial.println("WiFi connected:" + ip);
   display_message("Connected - " + ip);
