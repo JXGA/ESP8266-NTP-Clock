@@ -5,6 +5,9 @@
   >> ESP-NTP-MQTT V0.3 > Start to add Led Matrix code for MAX7219.
   >> ESP-NTP-MQTT V0.4 > Base ESP8266 code had NTP functionality in it now, using that as it only queries NTP once an hour
   >>                   > Also added MQTT brightness topic to alter brightness.
+  >> ESP-NTP-MQTT V0.5 > Add 'shutdown' MQTT to switch off MAX displays
+  >>                   > Add defaultBrightness
+  >>                   > Add debugMode
   >> 
 */
 
@@ -41,6 +44,8 @@ int numberOfVerticalDisplays   = 1;         // Display number (vert)
 int wait = 70;                              // In milliseconds, at the end of the scrolling MQTT message before returning to time
 int spacer = 1;                             // Font Spacer
 int width  = 5 + spacer;                    // The font width is 5 pixels
+int defaultBrightness = 0;                  // Default brightness (0-15)
+int debugMode = 0;                          // Enable (1) or Disable (0) serial outputs of NTP time
 
 ////////////////////////////////////////////////////////
 
@@ -88,6 +93,7 @@ void reconnect() {
       client.publish("nodeNTP_1/outmsg", "online");    // Publish mqtt messages to this topic (eg nodeNTP_1/outmsg)
       client.subscribe("nodeNTP_1/inmsg");             // Subscribe to mqtt messages to this topic (eg nodeNTP_1/inmsg - will display text message)
       client.subscribe("nodeNTP_1/bright");            // Subscribe to messages to this topic (eg nodeNTP_1/bright - sets the display brightness 1-15)
+      client.subscribe("nodeNTP_1/shutdown");            // Subscribe to messages to this topic (eg nodeNTP_1/bright - sets the display brightness 1-15)
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -122,9 +128,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (String(topic)=="nodeNTP_1/bright") {
     payload[length] = '\0';
     payloadData = String((char*)payload);
-    Serial.print(payloadData);
+    Serial.println(payloadData);
     if (payloadData.toInt() >= 0 || payloadData.toInt() <= 15) {
         matrix.setIntensity(payloadData.toInt());
+    }
+  }
+
+  if (String(topic)=="nodeNTP_1/shutdown") {
+    payload[length] = '\0';
+    payloadData = String((char*)payload);
+    Serial.println(payloadData);
+    if ((payloadData == String("true")) || (payloadData == String("TRUE")) || (payloadData == String("True")) || (payloadData == String("1"))) {
+       matrix.shutdown(true);
+    } else {
+       matrix.shutdown(false);
     }
   }
 }
@@ -132,7 +149,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void display_message(String message) {
     // Displays a message on the matrix
   for ( int i = 0 ; i < width * message.length() + matrix.width() - spacer; i++ ) {
-    //matrix.fillScreen(LOW);
     int letter = i / width;
     int x = (matrix.width() - 1) - i % width;
     int y = (matrix.height() - 8) / 2; // center the text vertically
@@ -190,7 +206,7 @@ void setup() {
   Serial.println("Init Matrix");
 
   matrix.fillScreen(0);
-  matrix.setIntensity(7); // Use a value between 0 and 15 for brightness
+  matrix.setIntensity(defaultBrightness); // Use a value between 0 and 15 for brightness
   matrix.setRotation(0, 1);    // The first display is position upside down
   matrix.setRotation(1, 1);    // The first display is position upside down
   matrix.setRotation(2, 1);    // The first display is position upside down
@@ -206,8 +222,8 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(STASSID, STAPSK);
 
-
   wifiAttempt = 0;
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     wifiAttempt = wifiAttempt + 1;
@@ -216,11 +232,10 @@ void setup() {
     }
     Serial.print(".");
   }
-
+|| (payloadData == String("True"))
   String ip = WiFi.localIP().toString().c_str();
-  Serial.print("WiFi connected:" + ip);
+  Serial.println("WiFi connected:" + ip);
   display_message("Connected - " + ip);
-
 
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -253,7 +268,9 @@ void loop() {
 if (showTimeNow) {
     showTime();
 
-      Serial.println("myTime var is: " + myTime);
+      if (debugMode) {
+         Serial.println("myTime var is: " + myTime);
+      }
       myTime.toCharArray(time_value, 10);
       matrix.drawChar(1, 0, time_value[0], HIGH, LOW, 1); // H
       matrix.drawChar(9, 0, time_value[1], HIGH, LOW, 1); // HH
@@ -266,11 +283,14 @@ if (showTimeNow) {
       matrix.drawChar(19, 0, time_value[3], HIGH, LOW, 1); // HH:M
       matrix.drawChar(26, 0, time_value[4], HIGH, LOW, 1); // HH:MM
       matrix.write(); // Send bitmap to display
-     
-     Serial.println();
-        // human readable
+
+      if (debugMode) {
+        Serial.println();
+        // human readable serial debug. Switch on debugMode at the vars to enable.
         Serial.print("ctime:     ");
         Serial.print(ctime(&now));
+      }
+      
      }
     delay(50);
       
