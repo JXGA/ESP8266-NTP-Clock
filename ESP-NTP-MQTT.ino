@@ -3,11 +3,14 @@
   >> ESP-NTP-MQTT V0.1 > This is designed to connect to WiFi and collect NTP time. 27-MAR-2020. AKA COVID-19 year.
   >> ESP-NTP-MQTT V0.2 > MQTT Callback added. Send a message to the address below.
   >> ESP-NTP-MQTT V0.3 > Start to add Led Matrix code for MAX7219.
-  >> ESP-NTP-MQTT V0.4 > Base ESP8266 code had NTP functionality in it now, using that as it only queries NTP once an hour
+  >> ESP-NTP-MQTT V0.4 > Base ESP8266 code has NTP functionality in it now, using that as it only queries NTP once an hour
   >>                   > Also added MQTT brightness topic to alter brightness.
   >> ESP-NTP-MQTT V0.5 > Add 'shutdown' MQTT to switch off MAX displays
   >>                   > Add defaultBrightness
   >>                   > Add debugMode
+  >> ESP-NTP-MQTT V0.6 > Removed (my) poor string handling code
+  >>				   > Removed 'shutdown' MQTT option, now just set brightness to '0' to turn off
+  >>				   > Fixed a memory leak issue that was causing reboots
   >> 
 */
 
@@ -28,9 +31,9 @@
 ////////////////////////////////////////////////////////
 
 #define STASSID "<Your SSID>"        // Enter your WiFi SSID here
-#define STAPSK  "<Your password>"  // Enter your Wifi password here
+#define STAPSK  "<Your password>"    // Enter your Wifi password here
 
-#define MYTZ TZ_Europe_London  // Set your timezone here
+#define MYTZ TZ_Europe_London        // Set your timezone here
 
 #define timeServer "uk.pool.ntp.org"  // Set your timeserver here
 
@@ -44,7 +47,7 @@ int numberOfVerticalDisplays   = 1;         // Display number (vert)
 int wait = 70;                              // In milliseconds, at the end of the scrolling MQTT message before returning to time
 int spacer = 1;                             // Font Spacer
 int width  = 5 + spacer;                    // The font width is 5 pixels
-int defaultBrightness = 0;                  // Default brightness (0-15)
+int defaultBrightness = 5;                  // Default brightness (1-15) or (0 - Off)
 int debugMode = 0;                          // Enable (1) or Disable (0) serial outputs of NTP time
 
 ////////////////////////////////////////////////////////
@@ -56,7 +59,6 @@ char time_value[20];      // This var will contain the digits for the time
 Max72xxPanel matrix = Max72xxPanel(pinCS, numberOfHorizontalDisplays, numberOfVerticalDisplays);
 static time_t now;  // An object which can store a time
 byte actualSecond;
-String myTime;
 
 static esp8266::polledTimeout::periodicMs showTimeNow(1000); // this uses the PolledTimeout library to allow an action to be performed every 1000 milli seconds
 
@@ -91,10 +93,9 @@ void reconnect() {
       Serial.println("connected");
       // Once connected, publish an announcement...
       client.publish("nodeNTP_1/outmsg", "online");    // Publish mqtt messages to this topic (eg nodeNTP_1/outmsg)
-      client.subscribe("nodeNTP_1/inmsg");             // Subscribe to mqtt messages to this topic (eg nodeNTP_1/inmsg - will display text message)
-      client.subscribe("nodeNTP_1/bright");            // Subscribe to messages to this topic (eg nodeNTP_1/bright - sets the display brightness 1-15)
-      client.subscribe("nodeNTP_1/shutdown");            // Subscribe to messages to this topic (eg nodeNTP_1/bright - sets the display brightness 1-15)
-    } else {
+      client.subscribe("nodeNTP_1/inmsg");             // Subscribe to mqtt messages in this topic (eg nodeNTP_1/inmsg "Hello World" - will display text message)
+      client.subscribe("nodeNTP_1/bright");            // Subscribe to messages in this topic (eg nodeNTP_1/bright "5" - sets the display brightness 1-15 or 0 to switch off)
+      } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
@@ -106,17 +107,22 @@ void reconnect() {
 
 void callback(char* topic, byte* payload, unsigned int length) {
   // Handles receiving mqtt messages
-  String payloadData;             // we start, assuming open
-
+  
+  //char* payloadData;             // we start, assuming open
+  
+  //Terminate the payload with 'nul' \0
+  payload[length] = '\0';
+  
   Serial.print("Message arrived in topic: ");
   Serial.println(topic);
   
-  if (String(topic)=="nodeNTP_1/inmsg") {
+  if (strcmp(topic,"nodeNTP_1/inmsg")==0) {
     Serial.print("Message:");
-    payload[length] = '\0';
-    payloadData = String((char*)payload);
+
+    char *payloadData = (char *) payload;
     Serial.print(payloadData);
 
+    matrix.fillScreen(LOW);
     display_message(payloadData);
   
     Serial.println();
@@ -125,26 +131,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
     delay(1000);
   }
 
-  if (String(topic)=="nodeNTP_1/bright") {
-    payload[length] = '\0';
-    payloadData = String((char*)payload);
-    Serial.println(payloadData);
-    if (payloadData.toInt() >= 0 || payloadData.toInt() <= 15) {
-        matrix.setIntensity(payloadData.toInt());
-    }
-  }
-
-  if (String(topic)=="nodeNTP_1/shutdown") {
-    payload[length] = '\0';
-    payloadData = String((char*)payload);
-    Serial.println(payloadData);
-    if ((payloadData == String("true")) || (payloadData == String("TRUE")) || (payloadData == String("True")) || (payloadData == String("1"))) {
-       matrix.shutdown(true);
-    } else {
-       matrix.shutdown(false);
-    }
-  }
+  if (strcmp(topic,"nodeNTP_1/bright")==0) {
+    int aNumber = atoi((char *)payload);
+    Serial.print("Brightness set to: ");
+    Serial.println(aNumber);
+    if (aNumber >= 0 || aNumber <= 15) {
+        matrix.shutdown(false);
+        matrix.setIntensity(aNumber);
+    } 
+    if (aNumber == 0) {
+        matrix.shutdown(true);
+    } 
+   }
 }
+
 
 void display_message(String message) {
     // Displays a message on the matrix
@@ -171,26 +171,8 @@ void showTime() {           // This function gets the current time
   byte actualMinute = localtime(&now)->tm_min;
   actualSecond = localtime(&now)->tm_sec;
 
-  myTime = "";
+  sprintf(time_value, "%02d:%02d:%02d",actualHour,actualMinute,actualSecond);
   
-      if (actualHour < 10) {
-        myTime = myTime + "0" + String(actualHour);
-      }
-      else {
-        myTime = String(actualHour);
-      }
-       if (actualMinute < 10) {
-        myTime = myTime + ":0" + String(actualMinute);
-      }
-      else {
-        myTime = myTime + ":" + String(actualMinute);
-      }
-      if (actualSecond < 10) {
-        myTime = myTime + ":0" + String(actualSecond);
-      }
-      else {
-        myTime = myTime + ":" + String(actualSecond);
-      }
 }
 
 void time_is_set_scheduled() {    // This function is set as the callback when time data is retrieved
@@ -255,7 +237,7 @@ void setup() {
 
 void loop() {
 
-  matrix.fillScreen(LOW);
+ //matrix.fillScreen(LOW);
 
   //Ensures MQTT client is connected
   {
@@ -269,9 +251,10 @@ if (showTimeNow) {
     showTime();
 
       if (debugMode) {
-         Serial.println("myTime var is: " + myTime);
+         Serial.print("time_value var is: ");
+         Serial.println(time_value);
       }
-      myTime.toCharArray(time_value, 10);
+
       matrix.drawChar(1, 0, time_value[0], HIGH, LOW, 1); // H
       matrix.drawChar(9, 0, time_value[1], HIGH, LOW, 1); // HH
       //matrix.drawChar(14,0, time_value[2], HIGH,LOW,1); // HH: // Static ':' Symbol
@@ -292,6 +275,7 @@ if (showTimeNow) {
       }
       
      }
-    delay(50);
+    //delay(50);
       
 }
+
