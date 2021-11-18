@@ -14,7 +14,6 @@
   >> ESP-NTP-MQTT V0.7 > Added LWT (Last Will and Testament) code to track online status 
   >> 
 */
-*/
 
 ////////////////////////////////////////////////////////
 // Includes:
