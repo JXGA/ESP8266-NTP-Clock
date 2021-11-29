@@ -8,9 +8,10 @@
   >> ESP-NTP-MQTT V0.5 > Add 'shutdown' MQTT to switch off MAX displays
   >>                   > Add defaultBrightness
   >>                   > Add debugMode
-  >> ESP-NTP-MQTT V0.6 > Removed (my) poor string handling code
-  >>				   > Removed 'shutdown' MQTT option, now just set brightness to '0' to turn off
-  >>				   > Fixed a memory leak issue that was causing reboots
+  >> ESP-NTP-MQTT V0.6 > Fixed string handling code
+  >>				           > Removed 'shutdown' MQTT option, now just set brightness to '0' to turn off
+  >>				           > Fixed a memory leak issue that was causing reboots						
+  >> ESP-NTP-MQTT V0.7 > Added LWT (Last Will and Testament) code to track online status 
   >> 
 */
 
@@ -40,6 +41,12 @@
 const char* mqtt_server = "<Your MQTT server>";  // Set your MQTT server address here
 const char* mqttUser = "";                       // Set your MQTT username here (if used)
 const char* mqttPassword = "";                   // Set your MQTT password here (if used)
+
+const char* willTopic = "nodeNTP_1/status/LWT";  // Modify to set LWT topic or message
+const int willQoS = 0;
+const bool willRetain = true;
+const char* willMessage = "disconnected";		     // Messages
+const char* willMessageConnect = "connected";											   
 
 int pinCS = D2;                             // Attach CS to this pin, DIN to MOSI and CLK to SCK (cf http://arduino.cc/en/Reference/SPI )
 int numberOfHorizontalDisplays = 4;         // Display number (horiz)
@@ -89,10 +96,11 @@ void reconnect() {
     String clientId = "NTPNode-";
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
-    if (client.connect(clientId.c_str(), mqttUser, mqttPassword)) {
-      Serial.println("connected");
+    if (client.connect(clientId.c_str(), mqttUser, mqttPassword, willTopic, willQoS, willRetain, willMessage)) {
+      Serial.print("Connected: ");
+      Serial.println(clientId);
       // Once connected, publish an announcement...
-      client.publish("nodeNTP_1/outmsg", "online");    // Publish mqtt messages to this topic (eg nodeNTP_1/outmsg)
+      client.publish(willTopic, willMessageConnect,1);
       client.subscribe("nodeNTP_1/inmsg");             // Subscribe to mqtt messages in this topic (eg nodeNTP_1/inmsg "Hello World" - will display text message)
       client.subscribe("nodeNTP_1/bright");            // Subscribe to messages in this topic (eg nodeNTP_1/bright "5" - sets the display brightness 1-15 or 0 to switch off)
       } else {
@@ -278,4 +286,3 @@ if (showTimeNow) {
     //delay(50);
       
 }
-
